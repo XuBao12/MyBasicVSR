@@ -1,12 +1,10 @@
 import torch
 import torchvision.transforms as T
 from torchvision.io import read_image
-from torch.utils.data import DataLoader
 import glob
 import numpy as np
 import os
 import random
-import copy
 
 
 def generate_segment_indices(
@@ -118,16 +116,4 @@ def pair_random_transposeHW_seq(sequence1, sequence2, p=0.5):
     return transformed1, transformed2
 
 
-def make_dataset(config):
-    cfg = copy.deepcopy(config)
-    type = cfg.pop("type")
-    if type == "REDSDataset":
-        from .REDSDataset import REDSDataset
 
-        return REDSDataset(**cfg)
-
-
-def make_dataloader(config):
-    cfg = copy.deepcopy(config)
-    cfg["dataset"] = make_dataset(cfg["dataset"])
-    return DataLoader(**cfg)

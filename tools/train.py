@@ -5,12 +5,11 @@ import torch
 import matplotlib.pyplot as plt
 
 from torch import nn
-from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
-from model import BasicVSR
-from dataset import REDSDataset, make_dataloader
+from model import make_model
+from dataset import make_dataloader
 from loss import CharbonnierLoss
 from utils import *
 
@@ -19,9 +18,6 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Train an editor")
 
     parser.add_argument("--config", default="../config/train.yml")
-    parser.add_argument(
-        "--spynet_pretrained", default="../checkpoint/spynet_20210409-c6c1bd09.pth"
-    )
     parser.add_argument(
         # "--checkpoint", default="../checkpoint/basicvsr_reds4_pretrained.pth"
         "--checkpoint",
@@ -53,12 +49,15 @@ def main(args):
     os.makedirs(f"{log_dir}/models", exist_ok=True)
     os.makedirs(f"{log_dir}/images", exist_ok=True)
 
+    # TODO 更改config一些内容然后记录为yaml存到log_dir下
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     train_loader = make_dataloader(config["train_dataloader"])
     val_loader = make_dataloader(config["val_dataloader"])
 
-    model = BasicVSR(spynet_pretrained=args.spynet_pretrained)
+    model = make_model(config["model"])
+    # TODO resume
     if args.checkpoint:
         model.load_state_dict(torch.load(args.checkpoint))
 

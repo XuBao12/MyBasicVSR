@@ -6,61 +6,61 @@ import matplotlib.pyplot as plt
 
 from torch import nn
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import CosineAnnealingLR
+
 from model import BasicVSR
-from dataset import REDSDataset
+from dataset import REDSDataset, make_dataloader
 from loss import CharbonnierLoss
-from utils import train_epoch, val_epoch, draw_loss, draw_valrst
+from utils import *
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train an editor")
 
-    parser.add_argument("--gt_dir", default="../data/train_sharp")
-    parser.add_argument("--lq_dir", default="../data/train_sharp_BI_na/X4")
-    parser.add_argument("--log_dir", default="../work_dir/BI_na/exp_1")
+    parser.add_argument("--config", default="../config/train.yml")
     parser.add_argument(
         "--spynet_pretrained", default="../checkpoint/spynet_20210409-c6c1bd09.pth"
     )
     parser.add_argument(
-        "--checkpoint", default="../checkpoint/basicvsr_reds4_pretrained.pth"
+        # "--checkpoint", default="../checkpoint/basicvsr_reds4_pretrained.pth"
+        "--checkpoint",
+        default=None,
     )
     parser.add_argument("--rst_file", default=None)
-    parser.add_argument("--scale_factor", default=4, type=int)
-    parser.add_argument("--batch_size", default=10, type=int)
-    parser.add_argument("--patch_size", default=64, type=int)
     parser.add_argument("--epochs", default=10, type=int)
-    parser.add_argument("--num_input_frames", default=5, type=int)
     parser.add_argument("--val_interval", default=2, type=int)
-    parser.add_argument("--max_keys", default=270, type=int)
-    parser.add_argument("--filename_tmpl", default="{:08d}.png")
-    parser.add_argument("--val_partition", default="REDS4")
 
     args = parser.parse_args()
     return args
 
 
-if __name__ == "__main__":
-    args = parse_args()
+def main(args):
+    # load config
+    try:
+        config_path = os.path.join(log_dir, "config.yaml")
+        check_file(config_path)
+        config = load_config(config_path)
+        print("config is loaded from checkpoint folder")
+        config["_resume"] = True
+    except:
+        check_file(args.config)
+        config = load_config(args.config)
+        print("config is loaded from command line")
 
-    os.makedirs(f"{args.log_dir}/models", exist_ok=True)
-    os.makedirs(f"{args.log_dir}/images", exist_ok=True)
+    log_dir = os.path.join(config["work_dir"], config["exp_name"])
+    os.makedirs(log_dir, exist_ok=True)
+    os.makedirs(f"{log_dir}/models", exist_ok=True)
+    os.makedirs(f"{log_dir}/images", exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    train_set = REDSDataset(args, is_test=False)
-    val_set = REDSDataset(args, is_test=True)
-    train_loader = DataLoader(
-        train_set,
-        batch_size=args.batch_size,
-        shuffle=True,
-        num_workers=0,
-        pin_memory=True,
-    )
-    val_loader = DataLoader(val_set, batch_size=1, num_workers=0, pin_memory=True)
+    train_loader = make_dataloader(config["train_dataloader"])
+    val_loader = make_dataloader(config["val_dataloader"])
 
     model = BasicVSR(spynet_pretrained=args.spynet_pretrained)
-    model.load_state_dict(torch.load(args.checkpoint))
+    if args.checkpoint:
+        model.load_state_dict(torch.load(args.checkpoint))
 
     # 定义损失函数和优化器
     criterion = CharbonnierLoss()
@@ -90,7 +90,7 @@ if __name__ == "__main__":
         train_loss = load_dict["train_loss"]  # a list
         val_results = load_dict["val_results"]  # a list
     else:
-        rst_file_name = f"{args.log_dir}/rst.json"
+        rst_file_name = f"{log_dir}/rst.json"
         train_loss = []  # 记录每次epoch的平均loss, len(train_loss) = len(max_epoch)
         val_results = []  # list of dict
 
@@ -114,9 +114,14 @@ if __name__ == "__main__":
 
         # val
         if (epoch + 1) % args.val_interval == 0:
-            os.makedirs(f"{args.log_dir}/images/epoch{epoch:05}", exist_ok=True)
-            val_rst = val_epoch(model, val_loader, epoch, device, args.log_dir)
+            os.makedirs(f"{log_dir}/images/epoch{epoch:05}", exist_ok=True)
+            val_rst = val_epoch(model, val_loader, epoch, device, log_dir)
             val_results.append(val_rst)
 
     draw_loss(train_loss, args)
     draw_valrst(val_results, args)
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    main(args)

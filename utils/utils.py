@@ -2,6 +2,7 @@ import torch
 import torchvision.transforms as T
 import numpy as np
 from typing import Union
+import os
 
 
 def resize_sequences(sequences, target_size):
@@ -123,3 +124,7 @@ def _convert_output_type_range(
     else:
         img /= 255.0
     return img.astype(dst_type)
+
+def check_file(path):
+    if not os.path.isfile(path):
+        raise ValueError('file does not exist: %s' % path)

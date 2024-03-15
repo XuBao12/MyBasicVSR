@@ -17,16 +17,27 @@ from .utils import (
 class REDSDataset(Dataset):
     """REDS dataset for video super resolution."""
 
-    def __init__(self, args, is_test=False):
-        self.gt_dir = args.gt_dir
-        self.lq_dir = args.lq_dir
-        self.scale_factor = args.scale_factor
-        self.patch_size = args.patch_size
+    def __init__(
+        self,
+        gt_dir,
+        lq_dir,
+        scale_factor,
+        patch_size,
+        num_input_frames,
+        filename_tmpl,
+        max_keys,
+        val_partition,
+        is_test,
+    ):
+        self.gt_dir = gt_dir
+        self.lq_dir = lq_dir
+        self.scale_factor = scale_factor
+        self.patch_size = patch_size
         self.is_test = is_test
-        self.num_input_frames = args.num_input_frames if not self.is_test else 100
-        self.filename_tmpl = args.filename_tmpl
-        self.max_keys = args.max_keys
-        self.val_partition = args.val_partition
+        self.num_input_frames = num_input_frames
+        self.filename_tmpl = filename_tmpl
+        self.max_keys = max_keys
+        self.val_partition = val_partition
 
         self.keys = self.load_keys()
         self.gt_seq_paths = [os.path.join(self.gt_dir, k) for k in self.keys]
@@ -68,6 +79,7 @@ class REDSDataset(Dataset):
         return len(self.keys)
 
     def __getitem__(self, idx):
+        #TODO 重写一下，速度太慢
         gt_sequence, lq_sequence = generate_segment_indices(
             self.gt_seq_paths[idx],
             self.lq_seq_paths[idx],

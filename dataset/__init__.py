@@ -9,6 +9,8 @@ def make_dataset(config):
     type = cfg.pop("type")
     if type == "REDSDataset":
         return REDSDataset(**cfg)
+    else:
+        raise NotImplementedError(f"Dataset {type} is not supported yet.")
 
 
 def make_dataloader(config):

@@ -79,7 +79,7 @@ class REDSDataset(Dataset):
         return len(self.keys)
 
     def __getitem__(self, idx):
-        #TODO 重写一下，速度太慢
+        # TODO 重写一下，速度太慢
         gt_sequence, lq_sequence = generate_segment_indices(
             self.gt_seq_paths[idx],
             self.lq_seq_paths[idx],
@@ -88,4 +88,4 @@ class REDSDataset(Dataset):
         )
         if not self.is_test:
             gt_sequence, lq_sequence = self.transform(gt_sequence, lq_sequence)
-        return gt_sequence, lq_sequence
+        return {"lq": lq_sequence, "gt": gt_sequence}

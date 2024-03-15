@@ -10,8 +10,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from model import make_model
 from dataset import make_dataloader
-from loss import CharbonnierLoss
-from utils import *
+from utils import load_config, check_file
 
 
 def parse_args():
@@ -31,7 +30,7 @@ def parse_args():
     return args
 
 
-def main(args):
+def train_pipeline(args):
     # load config
     try:
         config_path = os.path.join(log_dir, "config.yaml")
@@ -41,7 +40,7 @@ def main(args):
         config["_resume"] = True
     except:
         check_file(args.config)
-        config = load_config(args.config)
+        config = load_config(args.config, is_train=True)
         print("config is loaded from command line")
 
     log_dir = os.path.join(config["work_dir"], config["exp_name"])
@@ -56,71 +55,40 @@ def main(args):
     train_loader = make_dataloader(config["train_dataloader"])
     val_loader = make_dataloader(config["val_dataloader"])
 
-    model = make_model(config["model"])
-    # TODO resume
-    if args.checkpoint:
-        model.load_state_dict(torch.load(args.checkpoint))
+    model = make_model(config)
 
-    # 定义损失函数和优化器
-    criterion = CharbonnierLoss()
-    optimizer = torch.optim.Adam(
-        [
-            {"params": model.spynet.parameters(), "lr": 2.5e-5},
-            {"params": model.backward_resblocks.parameters()},
-            {"params": model.forward_resblocks.parameters()},
-            {"params": model.fusion.parameters()},
-            {"params": model.upsample1.parameters()},
-            {"params": model.upsample2.parameters()},
-            {"params": model.conv_hr.parameters()},
-            {"params": model.conv_last.parameters()},
-        ],
-        lr=2e-4,
-        betas=(0.9, 0.99),
-    )
+    start_epoch = 0
+    current_iter = 0
+    # TODO 记录（计算）总的epoch和iter
+    total_epochs = 10000
+    total_iters = 300000
 
-    max_epoch = args.epochs
-    scheduler = CosineAnnealingLR(optimizer, T_max=max_epoch, eta_min=1e-7)
+    for epoch in range(start_epoch, total_epochs + 1):
+        train_data = next(iter(train_loader))
 
-    # 保存训练的loss和评价的results(psnr和ssim)
-    if args.rst_file:
-        rst_file_name = args.rst_file
-        with open(rst_file_name, "r") as file_obj:
-            load_dict = json.load(file_obj)
-        train_loss = load_dict["train_loss"]  # a list
-        val_results = load_dict["val_results"]  # a list
-    else:
-        rst_file_name = f"{log_dir}/rst.json"
-        train_loss = []  # 记录每次epoch的平均loss, len(train_loss) = len(max_epoch)
-        val_results = []  # list of dict
-
-    for epoch in range(max_epoch):
-        # train
-        train_epoch(
-            model,
-            optimizer,
-            criterion,
-            scheduler,
-            train_loader,
-            epoch,
-            device,
-            train_loss,
-        )
-        with open(rst_file_name, "w") as file_obj:
-            json.dump(
-                {"epoch": epoch, "train_loss": train_loss, "val_results": val_results},
-                file_obj,
+        while train_data is not None:
+            current_iter += 1
+            if current_iter > total_iters:
+                break
+            # update learning rate
+            model.update_learning_rate(
+                current_iter, warmup_iter=config["train"].get("warmup_iter", -1)
             )
+            # training
+            model.feed_data(train_data)
+            model.optimize_parameters(current_iter)
+            # TODO log
+            print(f"iter:{current_iter}")
 
-        # val
-        if (epoch + 1) % args.val_interval == 0:
-            os.makedirs(f"{log_dir}/images/epoch{epoch:05}", exist_ok=True)
-            val_rst = val_epoch(model, val_loader, epoch, device, log_dir)
-            val_results.append(val_rst)
+            # TODO save models and training states
 
-    draw_loss(train_loss, args)
-    draw_valrst(val_results, args)
+            # TODO validation
+            train_data = next(iter(train_loader))
+        # end of iter
+
+    # end of epoch
 
 
 if __name__ == "__main__":
     args = parse_args()
-    main(args)
+    train_pipeline(args)

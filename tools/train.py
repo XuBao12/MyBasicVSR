@@ -2,6 +2,7 @@ import argparse
 import os
 import json
 import torch
+import math
 import matplotlib.pyplot as plt
 
 from torch import nn
@@ -9,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from model import make_model
-from dataset import make_dataloader
+from dataset import make_train_val_dataloader
 from utils import load_config, check_file
 
 
@@ -52,16 +53,15 @@ def train_pipeline(args):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    train_loader = make_dataloader(config["train_dataloader"])
-    val_loader = make_dataloader(config["val_dataloader"])
+    train_loader, val_loader, total_epochs, total_iters = make_train_val_dataloader(
+        config
+    )
+    print(total_epochs, total_iters)
 
     model = make_model(config)
 
     start_epoch = 0
     current_iter = 0
-    # TODO 记录（计算）总的epoch和iter
-    total_epochs = 10000
-    total_iters = 300000
 
     for epoch in range(start_epoch, total_epochs + 1):
         train_data = next(iter(train_loader))

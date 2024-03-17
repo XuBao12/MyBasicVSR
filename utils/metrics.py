@@ -114,9 +114,6 @@ def cal_psnr(img1, img2, crop_border=0, input_order="HWC", convert_to=None, **kw
     Returns:
         float: psnr result.
     """
-    crop_border = kwargs["crop_border"] if "crop_border" in kwargs else crop_border
-    input_order = kwargs["input_order"] if "input_order" in kwargs else input_order
-    convert_to = kwargs["convert_to"] if "convert_to" in kwargs else convert_to
 
     assert (
         img1.shape == img2.shape

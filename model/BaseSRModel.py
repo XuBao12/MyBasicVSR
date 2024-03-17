@@ -106,3 +106,11 @@ class BaseSRModel(BaseModel):
         else:
             self.save_network(self.backbone, 'backbone', current_iter)
         self.save_training_state(epoch, current_iter)
+
+    def get_current_visuals(self):
+        out_dict = OrderedDict()
+        out_dict['lq'] = self.lq.detach().cpu()
+        out_dict['result'] = self.output.detach().cpu()
+        if hasattr(self, 'gt'):
+            out_dict['gt'] = self.gt.detach().cpu()
+        return out_dict

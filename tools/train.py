@@ -66,16 +66,14 @@ def train_pipeline(args):
             # TODO log
             print(f"iter:{current_iter}")
 
-            # TODO save models and training states
-
-            # TODO validation
-
             # save models and training states
             if current_iter % config["logger"]["save_checkpoint_freq"] == 0:
                 print("Saving models and training states.")
                 model.save(epoch, current_iter)
 
             # validation
+            if current_iter % config["val"]["val_freq"] == 0:
+                model.validation(val_loader, current_iter, config["val"]["save_img"])
 
             train_data = next(iter(train_loader))
         # end of iter

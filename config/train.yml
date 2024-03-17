@@ -77,9 +77,7 @@ val:
 
   metrics:
     psnr: # metric name, can be arbitrary
-      type: calculate_psnr
       crop_border: 0
-      test_y_channel: false
 
 logger:
   print_freq: 100

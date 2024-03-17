@@ -155,3 +155,28 @@ class BaseModel(nn.Module):
         for optimizer, lr_groups in zip(self.optimizers, lr_groups_l):
             for param_group, lr in zip(optimizer.param_groups, lr_groups):
                 param_group["lr"] = lr
+
+    def _initialize_best_metric_results(self, dataset_name):
+        """Initialize the best metric results dict for recording the best metric value and iteration."""
+        if hasattr(self, 'best_metric_results') and dataset_name in self.best_metric_results:
+            return
+        elif not hasattr(self, 'best_metric_results'):
+            self.best_metric_results = dict()
+
+        # add a dataset record
+        record = dict()
+        for metric, content in self.cfg['val']['metrics'].items():
+            better = content.get('better', 'higher')
+            init_val = float('-inf') if better == 'higher' else float('inf')
+            record[metric] = dict(better=better, val=init_val, iter=-1)
+        self.best_metric_results[dataset_name] = record
+
+    def _update_best_metric_result(self, dataset_name, metric, val, current_iter):
+        if self.best_metric_results[dataset_name][metric]['better'] == 'higher':
+            if val >= self.best_metric_results[dataset_name][metric]['val']:
+                self.best_metric_results[dataset_name][metric]['val'] = val
+                self.best_metric_results[dataset_name][metric]['iter'] = current_iter
+        else:
+            if val <= self.best_metric_results[dataset_name][metric]['val']:
+                self.best_metric_results[dataset_name][metric]['val'] = val
+                self.best_metric_results[dataset_name][metric]['iter'] = current_iter

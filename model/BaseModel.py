@@ -29,6 +29,58 @@ class BaseModel(nn.Module):
         """Save networks and training state."""
         pass
 
+    def save_network(self, net, net_label, current_iter, param_key="params"):
+        """Save networks.
+
+        Args:
+            net (nn.Module | list[nn.Module]): Network(s) to be saved.
+            net_label (str): Network label.
+            current_iter (int): Current iter number.
+            param_key (str | list[str]): The parameter key(s) to save network.
+                Default: 'params'.
+        """
+        if current_iter == -1:
+            current_iter = "latest"
+        save_filename = f"{net_label}_{current_iter}.pth"
+        save_path = os.path.join(self.cfg["path"]["models"], save_filename)
+
+        net = net if isinstance(net, list) else [net]
+        param_key = param_key if isinstance(param_key, list) else [param_key]
+
+        save_dict = {}
+        for net_, param_key_ in zip(net, param_key):
+            # net_ = self.get_bare_model(net_) 并行计算
+            state_dict = net_.state_dict()
+            for key, param in state_dict.items():
+                if key.startswith("module."):  # remove unnecessary 'module.'
+                    key = key[7:]
+                state_dict[key] = param.cpu()
+            save_dict[param_key_] = state_dict
+        torch.save(save_dict, save_path)
+
+    def save_training_state(self, epoch, current_iter):
+        """Save training states during training, which will be used for
+        resuming.
+
+        Args:
+            epoch (int): Current epoch.
+            current_iter (int): Current iteration.
+        """
+        if current_iter != -1:
+            state = {
+                "epoch": epoch,
+                "iter": current_iter,
+                "optimizers": [],
+                "schedulers": [],
+            }
+            for o in self.optimizers:
+                state["optimizers"].append(o.state_dict())
+            for s in self.schedulers:
+                state["schedulers"].append(s.state_dict())
+            save_filename = f"{current_iter}.state"
+            save_path = os.path.join(self.cfg["path"]["training_states"], save_filename)
+            torch.save(state, save_path)
+
     def get_optimizer(self, optim_type, params, lr, **kwargs):
         if optim_type == "Adam":
             optimizer = torch.optim.Adam(params, lr, **kwargs)

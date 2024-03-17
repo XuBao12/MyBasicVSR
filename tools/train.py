@@ -11,7 +11,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from model import make_model
 from dataset import make_train_val_dataloader
-from utils import load_config, check_file
+from utils import load_config, check_file, copy_cfg
 
 
 def parse_args():
@@ -33,25 +33,10 @@ def parse_args():
 
 def train_pipeline(args):
     # load config
-    try:
-        config_path = os.path.join(log_dir, "config.yaml")
-        check_file(config_path)
-        config = load_config(config_path)
-        print("config is loaded from checkpoint folder")
-        config["_resume"] = True
-    except:
-        check_file(args.config)
-        config = load_config(args.config, is_train=True)
-        print("config is loaded from command line")
-
-    log_dir = os.path.join(config["work_dir"], config["exp_name"])
-    os.makedirs(log_dir, exist_ok=True)
-    os.makedirs(f"{log_dir}/models", exist_ok=True)
-    os.makedirs(f"{log_dir}/images", exist_ok=True)
-
-    # TODO 更改config一些内容然后记录为yaml存到log_dir下
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    check_file(args.config)
+    config = load_config(args.config, is_train=True)
+    print("config is loaded from command line")
+    copy_cfg(config, config["path"]["exp_root"])
 
     train_loader, val_loader, total_epochs, total_iters = make_train_val_dataloader(
         config
@@ -60,6 +45,7 @@ def train_pipeline(args):
 
     model = make_model(config)
 
+    # TODO resume training
     start_epoch = 0
     current_iter = 0
 
@@ -83,6 +69,14 @@ def train_pipeline(args):
             # TODO save models and training states
 
             # TODO validation
+
+            # save models and training states
+            if current_iter % config["logger"]["save_checkpoint_freq"] == 0:
+                print("Saving models and training states.")
+                model.save(epoch, current_iter)
+
+            # validation
+
             train_data = next(iter(train_loader))
         # end of iter
 

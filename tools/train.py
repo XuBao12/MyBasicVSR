@@ -3,6 +3,7 @@ import os
 import json
 import torch
 import math
+import logging
 import matplotlib.pyplot as plt
 
 from torch import nn
@@ -11,22 +12,20 @@ from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from model import make_model
 from dataset import make_train_val_dataloader
-from utils import load_config, check_file, copy_cfg
+from utils import (
+    load_config,
+    check_file,
+    copy_cfg,
+    get_time_str,
+    get_root_logger,
+    get_env_info,
+)
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Train an editor")
 
     parser.add_argument("--config", default="../config/train.yml")
-    parser.add_argument(
-        # "--checkpoint", default="../checkpoint/basicvsr_reds4_pretrained.pth"
-        "--checkpoint",
-        default=None,
-    )
-    parser.add_argument("--rst_file", default=None)
-    parser.add_argument("--epochs", default=10, type=int)
-    parser.add_argument("--val_interval", default=2, type=int)
-
     args = parser.parse_args()
     return args
 
@@ -37,6 +36,16 @@ def train_pipeline(args):
     config = load_config(args.config, is_train=True)
     print("config is loaded from command line")
     copy_cfg(config, config["path"]["exp_root"])
+
+    log_file = os.path.join(
+        config["path"]["log"], f"train_{config['exp_name']}_{get_time_str()}.log"
+    )
+    logger = get_root_logger(
+        logger_name="basicsr", log_level=logging.INFO, log_file=log_file
+    )
+    logger.info(get_env_info())
+
+    tb_logger = SummaryWriter(log_dir=config["path"]["log"])
 
     train_loader, val_loader, total_epochs, total_iters = make_train_val_dataloader(
         config
@@ -49,6 +58,7 @@ def train_pipeline(args):
     start_epoch = 0
     current_iter = 0
 
+    logger.info(f"Start training from epoch: {start_epoch}, iter: {current_iter}")
     for epoch in range(start_epoch, total_epochs + 1):
         train_data = next(iter(train_loader))
 
@@ -68,17 +78,21 @@ def train_pipeline(args):
 
             # save models and training states
             if current_iter % config["logger"]["save_checkpoint_freq"] == 0:
+                logger.info("Saving models and training states.")
                 print("Saving models and training states.")
                 model.save(epoch, current_iter)
 
             # validation
             if current_iter % config["val"]["val_freq"] == 0:
+                logger.info(f"Validate model at iteration:{current_iter}.")
                 model.validation(val_loader, current_iter, config["val"]["save_img"])
 
             train_data = next(iter(train_loader))
         # end of iter
 
     # end of epoch
+    logger.info("End training.")
+    model.save(epoch, current_iter=-1)
 
 
 if __name__ == "__main__":

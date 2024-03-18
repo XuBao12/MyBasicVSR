@@ -1,7 +1,7 @@
 from .BaseSRModel import BaseSRModel
 import torch
 from tqdm import tqdm
-from utils import tensor2img, calculate_metric
+from utils import tensor2img, calculate_metric, get_root_logger
 import os
 import cv2
 
@@ -44,7 +44,11 @@ class BaseVSRModel(BaseSRModel):
 
     def optimize_parameters(self, current_iter):
         if self.fix_flow_iter:
+            logger = get_root_logger()
             if current_iter == 1:
+                logger.info(
+                    f"Fix flow network and feature extractor for {self.fix_flow_iter} iters."
+                )
                 for name, param in self.backbone.named_parameters():
                     if "spynet" in name or "edvr" in name:
                         param.requires_grad_(False)
@@ -122,9 +126,7 @@ class BaseVSRModel(BaseSRModel):
                         for metric_idx, (metric_type, kwargs) in enumerate(
                             self.cfg["val"]["metrics"].items()
                         ):
-                            result = calculate_metric(
-                                metric_type, metric_data, kwargs
-                            )
+                            result = calculate_metric(metric_type, metric_data, kwargs)
                             self.metric_results[folder][idx, metric_idx] += result
 
                 # progress bar
@@ -164,6 +166,7 @@ class BaseVSRModel(BaseSRModel):
             )
 
         # ------------------------------------------ log the metric ------------------------------------------ #
+        logger = get_root_logger()
         log_str = f"Validation {dataset_name}\n"
         for metric_idx, (metric, value) in enumerate(total_avg_results.items()):
             log_str += f"\t # {metric}: {value:.4f}"
@@ -175,5 +178,4 @@ class BaseVSRModel(BaseSRModel):
                     f'{self.best_metric_results[dataset_name][metric]["iter"]} iter'
                 )
             log_str += "\n"
-
-        print(log_str)
+        logger.info(log_str)

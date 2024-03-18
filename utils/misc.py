@@ -1,6 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 import math
-
+import time
 import numpy as np
 import torch
 from torchvision.utils import make_grid
@@ -74,3 +74,7 @@ def tensor2img(tensor, out_type=np.uint8, min_max=(0, 1)):
         result.append(img_np)
     result = result[0] if len(result) == 1 else result
     return result
+
+
+def get_time_str():
+    return time.strftime("%Y%m%d_%H%M%S", time.localtime())

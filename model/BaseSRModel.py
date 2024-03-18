@@ -83,6 +83,7 @@ class BaseSRModel(BaseModel):
         self.optimizer.zero_grad()
         self.output = self.backbone(self.lq)
         loss = self.criterion(self.output, self.gt)
+        self.loss_dict[self.criterion.__class__.__name__] = loss
         loss.backward()
         self.optimizer.step()
 

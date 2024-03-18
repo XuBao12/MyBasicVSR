@@ -26,7 +26,7 @@ def load_config(config_file, is_train=True):
     return config
 
 
-def copy_cfg(config, config_file):
-    filename = osp.join(config["path"]["exp_root"], osp.basename(config_file))
+def copy_cfg(config):
+    filename = osp.join(config["path"]["exp_root"], "config.yml")
     with open(filename, "w") as file:
         yaml.safe_dump(config, file)

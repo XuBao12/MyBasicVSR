@@ -19,6 +19,7 @@ from utils import (
     get_time_str,
     get_root_logger,
     get_env_info,
+    log_infos,
 )
 
 
@@ -35,7 +36,7 @@ def train_pipeline(args):
     check_file(args.config)
     config = load_config(args.config, is_train=True)
     print("config is loaded from command line")
-    copy_cfg(config, config["path"]["exp_root"])
+    copy_cfg(config)
 
     log_file = os.path.join(
         config["path"]["log"], f"train_{config['exp_name']}_{get_time_str()}.log"
@@ -50,7 +51,6 @@ def train_pipeline(args):
     train_loader, val_loader, total_epochs, total_iters = make_train_val_dataloader(
         config
     )
-    print(total_epochs, total_iters)
 
     model = make_model(config)
 
@@ -70,11 +70,21 @@ def train_pipeline(args):
             model.update_learning_rate(
                 current_iter, warmup_iter=config["train"].get("warmup_iter", -1)
             )
+
             # training
             model.feed_data(train_data)
             model.optimize_parameters(current_iter)
-            # TODO log
-            print(f"iter:{current_iter}")
+
+            # log
+            if current_iter % config["logger"]["print_freq"] == 0:
+                log_infos(
+                    config["logger"],
+                    epoch,
+                    current_iter,
+                    model.get_current_learning_rate(),
+                    model.loss_dict,
+                    tb_logger,
+                )
 
             # save models and training states
             if current_iter % config["logger"]["save_checkpoint_freq"] == 0:
@@ -92,7 +102,10 @@ def train_pipeline(args):
 
     # end of epoch
     logger.info("End training.")
-    model.save(epoch, current_iter=-1)
+    model.save(epoch=-1, current_iter=-1)
+
+    if tb_logger:
+        tb_logger.close()
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ from .metrics import evaluate, evaluate_no_avg, cal_psnr, cal_ssim
 from .visualization import draw_loss, draw_valrst
 from .config import load_config, copy_cfg
 from .misc import tensor2img, get_time_str
-from .logger import get_root_logger, get_env_info
+from .logger import get_root_logger, get_env_info, log_infos
 from copy import deepcopy
 
 

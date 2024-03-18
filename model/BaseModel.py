@@ -187,3 +187,14 @@ class BaseModel(nn.Module):
             if val <= self.best_metric_results[dataset_name][metric]["val"]:
                 self.best_metric_results[dataset_name][metric]["val"] = val
                 self.best_metric_results[dataset_name][metric]["iter"] = current_iter
+
+    def model_ema(self, decay=0.999):
+        backbone = self.backbone
+
+        backbone_params = dict(backbone.named_parameters())
+        backbone_ema_params = dict(self.backbone_ema.named_parameters())
+
+        for k in backbone_ema_params.keys():
+            backbone_ema_params[k].data.mul_(decay).add_(
+                backbone_params[k].data, alpha=1 - decay
+            )

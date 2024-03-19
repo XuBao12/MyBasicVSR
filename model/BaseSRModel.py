@@ -1,7 +1,5 @@
 import torch
 from collections import OrderedDict
-from os import path as osp
-from tqdm import tqdm
 
 from backbone import make_backbone
 from loss import make_loss
@@ -17,16 +15,16 @@ class BaseSRModel(BaseModel):
         self.backbone.to(self.device)
         # self.print_network(self.backbone)
 
-        # TODO load pretrained models
-        # load_path = self.cfg["model"].get(["pretrained"], None)
-        # if load_path is not None:
-        #     param_key = self.cfg["path"].get("param_key_g", "params")
-        #     self.load_network(
-        #         self.backbone,
-        #         load_path,
-        #         self.cfg["path"].get("strict_load_g", True),
-        #         param_key,
-        #     )
+        # load pretrained models
+        load_path = self.cfg["model"].get("pretrained", None)
+        if load_path:
+            param_key = self.cfg["path"].get("param_key_g", "params")
+            self.load_network(
+                self.backbone,
+                load_path,
+                self.cfg["model"].get("strict_load", True),
+                param_key,
+            )
 
         if self.is_train:
             self.init_training_settings()
@@ -42,17 +40,17 @@ class BaseSRModel(BaseModel):
             # There is no need to wrap with DistributedDataParallel
             self.backbone_ema = make_backbone(self.cfg["model"]["backbone"])
             self.backbone_ema.to(self.device)
-            # TODO load pretrained model
-            # load_path = self.opt["path"].get("pretrain_network_g", None)
-            # if load_path is not None:
-            #     self.load_network(
-            #         self.backbone_ema,
-            #         load_path,
-            #         self.opt["path"].get("strict_load_g", True),
-            #         "params_ema",
-            #     )
-            # else:
-            #     self.model_ema(0)  # copy backbone weight
+            # load pretrained model
+            load_path = self.cfg["model"].get("pretrained", None)
+            if load_path:
+                self.load_network(
+                    self.backbone_ema,
+                    load_path,
+                    self.cfg["path"].get("strict_load_g", True),
+                    "params_ema",
+                )
+            else:
+                self.model_ema(0)  # copy backbone weight
             self.backbone_ema.eval()
 
         # define losses
@@ -88,7 +86,7 @@ class BaseSRModel(BaseModel):
         self.optimizer.step()
 
         if self.ema_decay > 0:
-            self.model_ema(decay=self.ema_decay) #BUG 未定义model_ema
+            self.model_ema(decay=self.ema_decay)  # BUG 未定义model_ema
 
     def test(self):
         if hasattr(self, "backbone_ema"):
@@ -102,16 +100,21 @@ class BaseSRModel(BaseModel):
             self.backbone.train()
 
     def save(self, epoch, current_iter):
-        if hasattr(self, 'backbone_ema'):
-            self.save_network([self.backbone, self.backbone_ema], 'backbone', current_iter, param_key=['params', 'params_ema'])
+        if hasattr(self, "backbone_ema"):
+            self.save_network(
+                [self.backbone, self.backbone_ema],
+                "backbone",
+                current_iter,
+                param_key=["params", "params_ema"],
+            )
         else:
-            self.save_network(self.backbone, 'backbone', current_iter)
+            self.save_network(self.backbone, "backbone", current_iter)
         self.save_training_state(epoch, current_iter)
 
     def get_current_visuals(self):
         out_dict = OrderedDict()
-        out_dict['lq'] = self.lq.detach().cpu()
-        out_dict['result'] = self.output.detach().cpu()
-        if hasattr(self, 'gt'):
-            out_dict['gt'] = self.gt.detach().cpu()
+        out_dict["lq"] = self.lq.detach().cpu()
+        out_dict["result"] = self.output.detach().cpu()
+        if hasattr(self, "gt"):
+            out_dict["gt"] = self.gt.detach().cpu()
         return out_dict

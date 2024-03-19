@@ -2,8 +2,6 @@ from .BaseSRModel import BaseSRModel
 import torch
 from tqdm import tqdm
 from utils import tensor2img, calculate_metric, get_root_logger
-import os
-import cv2
 
 
 class BaseVSRModel(BaseSRModel):

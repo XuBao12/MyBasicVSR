@@ -1,6 +1,6 @@
 # needs at least 16 GB of memory
 
-exp_name: test_if_work
+name: MyBasicVSR
 work_dir: /home/day3/cxx/codefield/MyBasicVSR/exp
 num_gpu: auto
 
@@ -47,6 +47,7 @@ model:
     num_blocks: 30
     spynet_pretrained: /home/day3/cxx/codefield/MyBasicVSR/checkpoint/spynet_20210409-c6c1bd09.pth
   pretrained: ~
+  strict_load: True
 
 train:
   ema_decay: 0.999
@@ -77,6 +78,8 @@ val:
 
   metrics:
     psnr: # metric name, can be arbitrary
+      crop_border: 0
+    ssim:
       crop_border: 0
 
 logger:

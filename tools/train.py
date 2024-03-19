@@ -1,21 +1,13 @@
 import argparse
 import os
-import json
-import torch
-import math
 import logging
-import matplotlib.pyplot as plt
-
-from torch import nn
 from torch.utils.tensorboard import SummaryWriter
-from torch.optim.lr_scheduler import CosineAnnealingLR
 
 from model import make_model
 from dataset import make_train_val_dataloader
 from utils import (
     load_config,
     check_file,
-    copy_cfg,
     get_time_str,
     get_root_logger,
     get_env_info,
@@ -26,7 +18,8 @@ from utils import (
 def parse_args():
     parser = argparse.ArgumentParser(description="Train an editor")
 
-    parser.add_argument("--config", default="../config/train.yml")
+    parser.add_argument("config")
+    parser.add_argument("--auto_resume", action="store_true")
     args = parser.parse_args()
     return args
 
@@ -34,31 +27,38 @@ def parse_args():
 def train_pipeline(args):
     # load config
     check_file(args.config)
-    config = load_config(args.config, is_train=True)
-    print("config is loaded from command line")
-    copy_cfg(config)
+    config, resume_state = load_config(args, is_train=True)
 
+    # logger
     log_file = os.path.join(
-        config["path"]["log"], f"train_{config['exp_name']}_{get_time_str()}.log"
+        config["path"]["log"], f"train_{config['name']}_{get_time_str()}.log"
     )
     logger = get_root_logger(
         logger_name="basicsr", log_level=logging.INFO, log_file=log_file
     )
+    logger.info("config is loaded from command line")
     logger.info(get_env_info())
-
     tb_logger = SummaryWriter(log_dir=config["path"]["log"])
 
+    # dataloader and model
     train_loader, val_loader, total_epochs, total_iters = make_train_val_dataloader(
         config
     )
-
     model = make_model(config)
 
-    # TODO resume training
-    start_epoch = 0
-    current_iter = 0
+    # resume training
+    if resume_state:
+        model.resume_training(resume_state)  # handle optimizers and schedulers
+        start_epoch = resume_state["epoch"]
+        current_iter = resume_state["iter"]
+        logger.info(
+            f"Resuming training from epoch: {start_epoch}, iter: {current_iter}."
+        )
+    else:
+        start_epoch = 0
+        current_iter = 0
+        logger.info(f"Start training from epoch: {start_epoch}, iter: {current_iter}")
 
-    logger.info(f"Start training from epoch: {start_epoch}, iter: {current_iter}")
     for epoch in range(start_epoch, total_epochs + 1):
         train_data = next(iter(train_loader))
 

@@ -1,11 +1,9 @@
 import os
-import time
 import torch
 import copy
 from torch import nn
-from collections import OrderedDict
 from copy import deepcopy
-from torch.nn.parallel import DataParallel, DistributedDataParallel
+from utils import get_root_logger
 
 
 class BaseModel(nn.Module):
@@ -57,6 +55,7 @@ class BaseModel(nn.Module):
                     key = key[7:]
                 state_dict[key] = param.cpu()
             save_dict[param_key_] = state_dict
+        # 保存的pth文件：{"params":{state_dict}，"params_ema":{state_dict}}，根据有无mea决定是否包含第二项，"params"以及"params_ema"统称为"param_key"
         torch.save(save_dict, save_path)
 
     def save_training_state(self, epoch, current_iter):
@@ -142,6 +141,47 @@ class BaseModel(nn.Module):
 
     def get_current_learning_rate(self):
         return [param_group["lr"] for param_group in self.optimizers[0].param_groups]
+
+    def resume_training(self, resume_state):
+        """Reload the optimizers and schedulers for resumed training.
+
+        Args:
+            resume_state (dict): Resume state.
+        """
+        resume_optimizers = resume_state["optimizers"]
+        resume_schedulers = resume_state["schedulers"]
+        for i, o in enumerate(resume_optimizers):
+            self.optimizers[i].load_state_dict(o)
+        for i, s in enumerate(resume_schedulers):
+            self.schedulers[i].load_state_dict(s)
+
+    def load_network(self, net, load_path, strict=True, param_key="params"):
+        """Load network.
+
+        Args:
+            load_path (str): The path of networks to be loaded.
+            net (nn.Module): Network.
+            strict (bool): Whether strictly loaded.
+            param_key (str): The parameter key of loaded network. If set to
+                None, use the root 'path'.
+                Default: 'params'.
+        """
+        logger = get_root_logger()
+        load_net = torch.load(load_path)
+        if param_key is not None:
+            if param_key not in load_net and "params" in load_net:
+                param_key = "params"
+                logger.info("Loading: params_ema does not exist, use params.")
+            load_net = load_net[param_key]
+        logger.info(
+            f"Loading {net.__class__.__name__} model from {load_path}, with param key: [{param_key}]."
+        )
+        # remove unnecessary 'module.'
+        for k, v in deepcopy(load_net).items():
+            if k.startswith("module."):
+                load_net[k[7:]] = v
+                load_net.pop(k)
+        net.load_state_dict(load_net, strict=strict)
 
     def _get_init_lr(self):
         """Get the initial lr, which is set by the scheduler."""

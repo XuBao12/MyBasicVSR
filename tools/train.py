@@ -95,7 +95,7 @@ def train_pipeline(args):
             # validation
             if current_iter % config["val"]["val_freq"] == 0:
                 logger.info(f"Validate model at iteration:{current_iter}.")
-                model.validation(val_loader, current_iter, config["val"]["save_img"])
+                model.validation(val_loader, current_iter, config["val"]["save_img"], tb_logger)
 
             train_data = next(iter(train_loader))
         # end of iter

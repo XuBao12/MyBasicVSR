@@ -55,7 +55,7 @@ class BaseVSRModel(BaseSRModel):
 
         super(BaseVSRModel, self).optimize_parameters(current_iter)
 
-    def validation(self, dataloader, current_iter, save_img):
+    def validation(self, dataloader, current_iter, save_img, tb_logger):
         dataset_cfg = self.cfg["val_dataloader"]["dataset"]
         dataset_name = dataset_cfg["type"]
         with_metrics = self.cfg["val"]["metrics"] is not None
@@ -134,9 +134,9 @@ class BaseVSRModel(BaseSRModel):
         pbar.close()
 
         if with_metrics:
-            self._log_validation_metric_values(current_iter, dataset_name)
+            self._log_validation_metric_values(current_iter, dataset_name, tb_logger)
 
-    def _log_validation_metric_values(self, current_iter, dataset_name):
+    def _log_validation_metric_values(self, current_iter, dataset_name, tb_logger):
         # ----------------- calculate the average values for each folder, and for each metric  ----------------- #
         # average all frames for each sub-folder
         # metric_results_avg is a dict:{
@@ -166,6 +166,9 @@ class BaseVSRModel(BaseSRModel):
         # ------------------------------------------ log the metric ------------------------------------------ #
         logger = get_root_logger()
         log_str = f"Validation {dataset_name}\n"
+        if self.cfg["logger"]["use_tb_logger"]:
+            for metric, avg in total_avg_results.items():
+                tb_logger.add_scalar(f"val_metrics/{metric}", avg, current_iter)
         for metric_idx, (metric, value) in enumerate(total_avg_results.items()):
             log_str += f"\t # {metric}: {value:.4f}"
             for folder, tensor in metric_results_avg.items():
